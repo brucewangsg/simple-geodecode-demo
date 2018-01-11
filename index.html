@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Postal code geodecode</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 4px;
+      }
+      #map {
+        width: 4px;
+      }  
+			.container {
+				padding : 10px;
+			}    
+			.input-field {
+				padding : 5px 10px;
+				border : 2px solid #AAA;
+				-webkit-box-sizing : border-box;
+				box-sizing : border-box;
+				border-radius : 5px;
+			}
+			.disabled {
+				opacity : 0.2;
+			}
+    </style>
+  </head>
+
+  <body>
+		
+		<div class="container">
+	    <div id="locationField">
+				<label>Postal Code</label>
+	      <input id="autocomplete" placeholder="Enter a city" type="text" class="input-field" />
+				e.g. 520888
+	    </div>
+	
+	
+	    <div id="map" style='visibility:hidden'></div>
+
+	    <div id="listing" class="disabled">
+				<p>Retrieve geodecoded results below ....</p>
+		  	<div>
+		  		Street
+		  		<input type='text' id='Street' class='input-field' disabled='disabled'/>
+		  	</div>
+
+		  	<div>
+		  		Block
+		  		<input type='text' id='Block' class='input-field' disabled='disabled'/>
+		  	</div>
+	    </div>
+    </div>
+
+
+    <script>
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 12,
+          center: {lat: 1.3521, lng: 103.8198},
+          mapTypeControl: false,
+          panControl: false,
+          zoomControl: false,
+          streetViewControl: false
+        });
+
+        places = new google.maps.places.PlacesService(map);
+        document.getElementById('autocomplete').addEventListener('change', search);			
+      }
+	  
+      // Search for hotels in the selected city, within the viewport of the map.
+      function search() {
+		var geocoder = new google.maps.Geocoder();
+
+		function codeAddress(latlng) {
+			// var latlng = {lat: parseFloat(latlngStr[0]), lng: parseFloat(latlngStr[1])};
+			geocoder.geocode({'location': latlng}, function(results, status) {
+			  if (status == google.maps.GeocoderStatus.OK) {
+				var found = false;
+				var result = results[0];
+				var Street = '';
+				var Block = '';
+				if (result) {
+					for (var i = 0, len = result.address_components.length; i < len; i++) {
+						if (result.address_components[i].types.join("-").indexOf("country") >= 0 && result.address_components[i].long_name == "Singapore") {
+							found = true;
+						}
+						if (result.address_components[i].types.join("-").indexOf("route") >= 0) {
+							Street = result.address_components[i].long_name;
+						}
+						if (result.address_components[i].types.join("-").indexOf("premise") >= 0) {
+							Block = result.address_components[i].long_name.replace(/Block\s*/ig, '');
+						}
+						if (result.address_components[i].types.join("-").indexOf("street_number") >= 0 && Block == '') {
+							Block = result.address_components[i].long_name.replace(/Block\s*/ig, '');
+						}
+					}
+				}
+	
+				if (found) {
+					document.getElementById('Street').value = Street;
+					document.getElementById('Block').value = Block;
+					document.getElementById('listing').classList.remove('disabled');
+					document.getElementById('Street').attributes.disabled = false;
+					document.getElementById('Block').attributes.disabled = false;
+				}
+			  }
+			});
+		};
+	  
+		places.textSearch({
+			query : document.getElementById('autocomplete').value,
+			bounds : new google.maps.LatLngBounds(				
+				new google.maps.LatLng(1.223748, 103.614142),
+				new google.maps.LatLng(1.474990, 104.027503)
+			)
+		}, function(results, status) {
+          if (status === google.maps.places.PlacesServiceStatus.OK) {
+            for (var i = 0; i < Math.min(results.length, 1); i++) {
+			  codeAddress(results[i].geometry.location);
+            }
+          }
+        });
+      }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmoldI1nbDyGQ1-VHdjGixfga3ptCBfoo&libraries=places&callback=initMap"
+        async defer></script>
+  </body>
+</html>
+
+

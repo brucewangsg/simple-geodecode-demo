@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Markers placement with undo and redo</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 4px;
+      }
+      #map {
+        width: 4px;
+      }  
+			.container {
+				padding : 10px;
+			}    
+			.input-field {
+				padding : 5px 10px;
+				border : 2px solid #AAA;
+				-webkit-box-sizing : border-box;
+				box-sizing : border-box;
+				border-radius : 5px;
+			}
+			.disabled {
+				opacity : 0.2;
+			}
+    </style>
+		<script src="javascripts/undoredo.js"></script>
+  </head>
+
+  <body>
+		
+		<div class="container">
+			<p>Add a few markers to create a geofence</p>
+			<span id='undo'>undo</span>
+			<span id='redo'>redo</span>
+    </div>
+
+    <div id="map" style='width : 500px; height : 500px;'></div>
+
+    <script>
+			var polylines = [];
+			var polymarkers = [];
+
+			var undoRedo = createUndoRedo();
+			undoRedo.changed(function () {
+				document.getElementById('undo').classList[undoRedo.canUndo() ? 'remove' : 'add']('disabled');
+				document.getElementById('redo').classList[undoRedo.canRedo() ? 'remove' : 'add']('disabled');				
+			});
+			undoRedo.triggerUpdate();
+
+			document.getElementById('undo').addEventListener('click', function () {
+				undoRedo.undo();
+			});
+
+			document.getElementById('redo').addEventListener('click', function () {
+				undoRedo.redo();
+			});
+									
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 12,
+          center: {lat: 1.3521, lng: 103.8198},
+          mapTypeControl: false,
+          panControl: false,
+          zoomControl: false,
+          streetViewControl: false
+        });
+				
+				var markerPath = new google.maps.Polygon({
+	        path: polylines,
+	        geodesic: true,
+	        strokeColor: '#FF0000',
+	        strokeOpacity: 1.0,
+	        strokeWeight: 2
+	      });
+								
+				map.addListener('click', function(e) {
+					// add markers
+					var marker = new google.maps.Marker({
+		        position: e.latLng,
+		        map: map
+		      });
+					
+					// updating polylines
+					polylines.push(e.latLng);
+					polymarkers.push(marker);
+
+					marker.addListener('click', function() {
+	          marker.setMap(null);
+						for (var i = 0, len = polymarkers.length; i < len; i++) {
+							if (polymarkers[i] == marker) {
+								polymarkers.splice(i,1);
+								polylines.splice(i,1);
+								markerPath.setPath(polylines);
+								markerPath.setMap(map);
+
+								undoRedo.pushUndoRedo((function (pos, latLng) {
+									// insert in position i
+									return function () {
+										var marker = new google.maps.Marker({
+							        position: latLng,
+							        map: map
+							      });
+										polylines.splice(pos, 0, latLng);
+										polymarkers.splice(pos, 0, marker);			
+																	
+										markerPath.setPath(polylines);
+										markerPath.setMap(map);
+									}
+								})(i, marker.getPosition()), (function (pos) {
+									return function () {
+										// remove marker in position i
+										polymarkers[i].setMap(null);
+										polymarkers.splice(i,1);
+										polylines.splice(i,1);
+										markerPath.setPath(polylines);
+										markerPath.setMap(map);									
+									}									
+								})(i));
+								break;
+							}
+						}
+	        });
+
+					markerPath.setPath(polylines);
+					markerPath.setMap(map);
+					
+					undoRedo.pushUndoRedo((function () {
+						return function () {
+							// remove marker in last position
+							polymarkers[polymarkers.length-1].setMap(null);
+							polymarkers.splice(polymarkers.length-1,1);
+							polylines.splice(polylines.length-1,1);
+							markerPath.setPath(polylines);
+							markerPath.setMap(map);									
+						}
+					})(marker), (function (latLng) {
+						// insert in last position
+						return function () {
+							var marker = new google.maps.Marker({
+				        position: latLng,
+				        map: map
+				      });
+							polylines.push(latLng);
+							polymarkers.push(marker);			
+														
+							markerPath.setPath(polylines);
+							markerPath.setMap(map);
+						}
+					})(e.latLng));
+					
+        });
+				
+      }	  			
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmoldI1nbDyGQ1-VHdjGixfga3ptCBfoo&libraries=places&callback=initMap"
+        async defer></script>
+  </body>
+</html>
+
+
